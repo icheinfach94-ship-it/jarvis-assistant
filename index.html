@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS OS</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00d2ff">
+    <style>
+        body {
+            background-color: #030914;
+            color: #00d2ff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .arc-reactor {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 5px double #00d2ff;
+            box-shadow: 0 0 20px #00d2ff, inset 0 0 20px #00d2ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .arc-reactor:active {
+            transform: scale(0.95);
+        }
+        .core {
+            width: 60px;
+            height: 60px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 30px #ffffff;
+        }
+        #output {
+            margin-top: 30px;
+            padding: 20px;
+            width: 80%;
+            max-width: 400px;
+            text-align: center;
+            border-radius: 8px;
+            background: rgba(0, 210, 255, 0.05);
+            border: 1px solid #00d2ff;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>JARVIS CORE</h1>
+    <div class="arc-reactor" id="mic-btn">
+        <div class="core"></div>
+    </div>
+    <div id="output">Bereit für Befehle, Sir...</div>
+
+    <script>
+        // Nutzt den relativen Pfad der Vercel Serverless Function
+        const BACKEND_URL = "/api/command"; 
+        
+        const outputDiv = document.getElementById('output');
+        const micBtn = document.getElementById('mic-btn');
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'de-DE';
+
+            micBtn.addEventListener('click', () => {
+                outputDiv.innerText = "Ich höre zu, Sir...";
+                recognition.start();
+            });
+
+            recognition.onresult = async (event) => {
+                const text = event.results[0][0].transcript;
+                outputDiv.innerText = `Du: "${text}"`;
+                
+                try {
+                    const response = await fetch(BACKEND_URL, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ text: text })
+                    });
+                    const data = await response.json();
+                    
+                    outputDiv.innerText = `JARVIS: ${data.reply}`;
+                    speak(data.reply);
+                } catch (error) {
+                    outputDiv.innerText = "Verbindung zum Core fehlgeschlagen, Sir.";
+                }
+            };
+        } else {
+            outputDiv.innerText = "Spracherkennung wird nicht unterstützt.";
+        }
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'de-DE';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        if ('serviceWorker' in navigator) {
+            const swCode = "self.addEventListener('fetch', function(event) {});";
+            const blob = new Blob([swCode], {type: 'application/javascript'});
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl).catch(() => {});
+        }
+    </script>
+</body>
+</html>
